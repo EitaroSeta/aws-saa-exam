@@ -59,6 +59,31 @@
         <span>5問</span><span>65問</span>
       </div>
     </div>
+    <div class="bg-slate-50 rounded-xl p-5 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-bold text-slate-700">出題分野</span>
+        <span id="domain-q-count" class="text-xs font-semibold text-orange-500">120問</span>
+      </div>
+      <div class="space-y-2.5">
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" class="domain-cb w-4 h-4 accent-orange-500" value="1" checked onchange="updateStartInfo()">
+          <span class="text-sm text-slate-700">Domain 1: セキュアなアーキテクチャ</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" class="domain-cb w-4 h-4 accent-orange-500" value="2" checked onchange="updateStartInfo()">
+          <span class="text-sm text-slate-700">Domain 2: 弾力性の高いアーキテクチャ</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" class="domain-cb w-4 h-4 accent-orange-500" value="3" checked onchange="updateStartInfo()">
+          <span class="text-sm text-slate-700">Domain 3: 高パフォーマンスなアーキテクチャ</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" class="domain-cb w-4 h-4 accent-orange-500" value="4" checked onchange="updateStartInfo()">
+          <span class="text-sm text-slate-700">Domain 4: コスト最適化されたアーキテクチャ</span>
+        </label>
+      </div>
+      <p id="domain-error" class="text-red-500 text-xs mt-3" hidden>分野を1つ以上選択してください</p>
+    </div>
     <div class="grid grid-cols-3 gap-3 mb-4">
       <div class="bg-slate-50 rounded-xl p-4 text-center">
         <div id="time-display" class="text-2xl font-bold text-slate-800">130</div>
@@ -1465,21 +1490,47 @@ function show(id) {
 }
 
 // ===================== START =====================
+function getSelectedDomains() {
+  return [...document.querySelectorAll('.domain-cb:checked')].map(cb => parseInt(cb.value));
+}
+
 function updateStartInfo() {
-  const n = parseInt(document.getElementById('q-count-slider').value);
-  const mins = n * 2;
+  const selected = getSelectedDomains();
+  const available = BANK.filter(q => selected.includes(q.d)).length;
+
+  document.getElementById('domain-q-count').textContent = `${available}問`;
+
+  const slider = document.getElementById('q-count-slider');
+  // Snap slider max to step-of-5, capped at 65
+  const newMax = available <= 0 ? 5
+    : available < 5 ? available
+    : Math.min(65, Math.floor(available / 5) * 5);
+  slider.max = newMax;
+  if (parseInt(slider.value) > newMax) slider.value = newMax;
+
+  const n = parseInt(slider.value);
   document.getElementById('q-count-display').textContent = n;
-  document.getElementById('time-display').textContent = mins;
+  document.getElementById('time-display').textContent = n * 2;
 }
 
 function startExam() {
-  TOTAL = parseInt(document.getElementById('q-count-slider').value);
-  const mins = TOTAL * 2;
-  S.qs = shuffle(BANK).slice(0, TOTAL);
+  const selected = getSelectedDomains();
+  const errEl = document.getElementById('domain-error');
+  if (selected.length === 0) {
+    errEl.hidden = false;
+    return;
+  }
+  errEl.hidden = true;
+
+  const pool = shuffle(BANK.filter(q => selected.includes(q.d)));
+  // Auto-adjust if slider value exceeds available questions
+  TOTAL = Math.min(parseInt(document.getElementById('q-count-slider').value), pool.length);
+
+  S.qs = pool.slice(0, TOTAL);
   S.ans = {};
   S.flagged = new Set();
   S.cur = 0;
-  S.timeLeft = mins * 60;
+  S.timeLeft = TOTAL * 2 * 60;
   S.startTime = Date.now();
   buildNavGrid();
   renderQuestion();
@@ -1733,6 +1784,7 @@ function renderAnswerReview() {
 
 // ===================== INIT =====================
 updateTimerDisplay();
+updateStartInfo();
 </script>
 </body>
 </html>
